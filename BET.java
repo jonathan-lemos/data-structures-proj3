@@ -12,110 +12,10 @@
 // T' -> x T | epsilon
 // F  -> num | ( E )
 
-// postfix
-
-// og grammar
-// E  -> E E + | E E * | num
-
 import java.util.LinkedList;
 import java.util.Stack;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
-interface Node {
-	String toStringPostfix();
-}
-
-class ExprNode implements Node {
-	final public TermNode t;
-	final public ExprNode e;
-	final public String op;
-
-	public ExprNode(TermNode t) {
-		this(t, null, null);
-	}
-
-	public ExprNode(TermNode t, String op, ExprNode e) {
-		this.t = t;
-		this.op = op;
-		this.e = e;
-	}
-
-	public String toString() {
-		if (e == null) {
-			return t.toString();
-		}
-		return t.toString() + " " + this.op + " " + e.toString();
-	}
-
-	public String toStringPostfix() {
-		if (e == null) {
-			return t.toStringPostfix();
-		}
-		return t.toStringPostfix() + " " + e.toStringPostfix() + " " + this.op + " ";
-	}
-}
-
-class TermNode implements Node {
-	final public FactorNode f;
-	final public TermNode t;
-	final public String op;
-
-	public TermNode(FactorNode f) {
-		this.f = f;
-		this.t = null;
-		this.op = null;
-	}
-
-	public TermNode(FactorNode f, String op, TermNode t) {
-		this.f = f;
-		this.op = op;
-		this.t = t;
-	}
-
-	public String toString() {
-		if (t == null) {
-			return f.toString();
-		}
-		return f.toString() + " " + this.op + " " + t.toString();
-	}
-
-	public String toStringPostfix() {
-		if (t == null) {
-			return f.toStringPostfix();
-		}
-		return f.toStringPostfix() + " " + t.toStringPostfix() + " " + this.op + " ";
-	}
-}
-
-class FactorNode implements Node {
-	public String s;
-	public ExprNode e;
-
-	public FactorNode(String s) {
-		this.s = s;
-		this.e = null;
-	}
-
-	public FactorNode(ExprNode e) {
-		this.s = null;
-		this.e = e;
-	}
-
-	public String toString() {
-		if (e == null) {
-			return s;
-		}
-		return "(" + e.toString() + ")";
-	}
-
-	public String toStringPostfix() {
-		if (e == null) {
-			return s;
-		}
-		return e.toStringPostfix();
-	}
-}
 
 class TokStream {
 	private LinkedList<String> lexemes;
@@ -129,19 +29,19 @@ class TokStream {
 				input = input.substring(m.group(1).length());
 				continue;
 			}
-			m = Pattern.compile("^(\\d+|[A-Za-z]+).*$").matcher(input);
+			m = Pattern.compile("^(\\w+).*$").matcher(input);
 			if (m.find()) {
 				lexemes.addLast(m.group(1));
 				input = input.substring(m.group(1).length());
 				continue;
 			}
-			m = Pattern.compile("^([+\\-*/]).*$").matcher(input);
+			m = Pattern.compile("^([+\\-*/()]).*$").matcher(input);
 			if (m.find()) {
 				lexemes.addLast(m.group(1));
 				input = input.substring(m.group(1).length());
 				continue;
 			}
-			throw new IllegalArgumentException("Invalid token \"" + input.substring(0, 1) + "\"");
+			throw new IllegalStateException("Invalid token \"" + input.substring(0, 1) + "\"");
 		}
 	}
 
@@ -166,6 +66,117 @@ class TokStream {
 
 
 public class BET {
+	private abstract static class BinaryNode {
+		protected BinaryNode left;
+		protected String mid;
+		protected BinaryNode right;
+
+		abstract String toStringPostfix();
+	}
+
+	private static class ExprNode extends BinaryNode {
+		public ExprNode(TermNode t) {
+			this(t, null, null);
+		}
+
+		public ExprNode(TermNode t, String op, ExprNode e) {
+			this.left = t;
+			this.mid = op;
+			this.right = e;
+		}
+
+		public TermNode t() {
+			return (TermNode)this.left;
+		}
+
+		public ExprNode e() {
+			return (ExprNode)this.right;
+		}
+
+		public String toString() {
+			if (e() == null) {
+				return t().toString();
+			}
+			return t().toString() + " " + this.mid + " " + e().toString();
+		}
+
+		public String toStringPostfix() {
+			if (e() == null) {
+				return t().toStringPostfix();
+			}
+			return t().toStringPostfix() + " " + e().toStringPostfix() + " " + this.mid;
+		}
+	}
+
+	private static class TermNode extends BinaryNode {
+
+		public TermNode(FactorNode f) {
+			this(f, null, null);
+		}
+
+		public TermNode(FactorNode f, String op, TermNode t) {
+			this.left = f;
+			this.mid = op;
+			this.right = t;
+		}
+
+		public FactorNode f() {
+			return (FactorNode)this.left;
+		}
+
+		public TermNode t() {
+			return (TermNode)this.right;
+		}
+
+		public String toString() {
+			if (t() == null) {
+				return f().toString();
+			}
+			return f().toString() + " " + this.mid + " " + t().toString();
+		}
+
+		public String toStringPostfix() {
+			if (t() == null) {
+				return f().toStringPostfix();
+			}
+			return f().toStringPostfix() + " " + t().toStringPostfix() + " " + this.mid;
+		}
+	}
+
+	private static class FactorNode extends BinaryNode {
+		public FactorNode(String s) {
+			this.mid = s;
+			this.right = null;
+		}
+
+		public FactorNode(ExprNode e) {
+			this.mid = null;
+			this.right = e;
+		}
+
+		public String s() {
+			return this.mid;
+		}
+
+		public ExprNode e() {
+			return (ExprNode)this.right;
+		}
+
+		public String toString() {
+			if (e() == null) {
+				return s();
+			}
+			return "(" + e().toString() + ")";
+		}
+
+		public String toStringPostfix() {
+			if (e() == null) {
+				return s();
+			}
+			return e().toStringPostfix();
+		}
+	}
+
 	private ExprNode root;
 
 	private FactorNode __infixFactor(TokStream tokens) {
@@ -178,31 +189,31 @@ public class BET {
 			ExprNode e = __infixExpr(tokens);
 			String next2 = tokens.peek();
 			if (next2 == null || !next2.equals(")")) {
-				throw new IllegalArgumentException("Invalid expression (unbalanced parentheses)");
+				throw new IllegalStateException("Invalid expression (unbalanced parentheses)");
 			}
 			tokens.extract();
 			return new FactorNode(e);
 		}
-		else if (next.matches("^(\\d|[A-Za-z])+$")) {
+		else if (next.matches("^\\w+$")) {
 			tokens.extract();
 			return new FactorNode(next);
 		}
 		else {
-			throw new IllegalArgumentException("Invalid token \"" + next + "\"");
+			throw new IllegalStateException("Invalid token \"" + next + "\"");
 		}
 	}
 
-	private TermNode __infixTermPrime(TokStream tokens) {
+	private TermNode __infixTermPrime(TokStream tokens, FactorNode f) {
 		String next = tokens.peek();
-		if (next == null || !next.equals("*")) {
-			return null;
+		if (next == null || (!next.equals("*") && !next.equals("/"))) {
+			return new TermNode(f);
 		}
 		tokens.extract();
 		TermNode t = __infixTerm(tokens);
 		if (t == null) {
-			throw new IllegalArgumentException("Invalid expression (failed term prime)");
+			throw new IllegalStateException("Invalid expression (failed term prime)");
 		}
-		return t;
+		return new TermNode(f, next, t);
 	}
 
 	private TermNode __infixTerm(TokStream tokens) {
@@ -210,21 +221,21 @@ public class BET {
 		if (f == null) {
 			return null;
 		}
-		TermNode t = __infixTermPrime(tokens);
-		return new TermNode(f, t);
+		TermNode t = __infixTermPrime(tokens, f);
+		return t;
 	}
 
-	private ExprNode __infixExprPrime(TokStream tokens) {
+	private ExprNode __infixExprPrime(TokStream tokens, TermNode t) {
 		String next = tokens.peek();
-		if (next == null || !next.equals("+")) {
-			return null;
+		if (next == null || (!next.equals("+") && !next.equals("-"))) {
+			return new ExprNode(t);
 		}
 		tokens.extract();
 		ExprNode e =  __infixExpr(tokens);
 		if (e == null) {
-			throw new IllegalArgumentException("Invalid expression (failed expr prime)");
+			throw new IllegalStateException("Invalid expression (failed expr prime)");
 		}
-		return e;
+		return new ExprNode(t, next, e);
 	}
 
 	private ExprNode __infixExpr(TokStream tokens) {
@@ -232,42 +243,42 @@ public class BET {
 		if (t == null) {
 			return null;
 		}
-		ExprNode e = __infixExprPrime(tokens);
-		return new ExprNode(t, e);
+		ExprNode e = __infixExprPrime(tokens, t);
+		return e;
 	}
 
-	private static ExprNode combinePlus(Node n1, Node n2) {
+	private static ExprNode combinePlus(BinaryNode n1, String op, BinaryNode n2) {
 		if (n1 instanceof ExprNode) {
 			ExprNode e1 = (ExprNode)n1;
 			if (n2 instanceof ExprNode) {
-				return new ExprNode(new TermNode(new FactorNode(e1)), (ExprNode)n2);
+				return new ExprNode(new TermNode(new FactorNode(e1)), op, (ExprNode)n2);
 			}
 			if (n2 instanceof TermNode) {
-				return new ExprNode(new TermNode(new FactorNode(e1)), new ExprNode((TermNode)n2));
+				return new ExprNode(new TermNode(new FactorNode(e1)), op, new ExprNode((TermNode)n2));
 			}
-			return new ExprNode(new TermNode(new FactorNode(e1)), new ExprNode(new TermNode((FactorNode)n2)));
+			return new ExprNode(new TermNode(new FactorNode(e1)), op, new ExprNode(new TermNode((FactorNode)n2)));
 		}
 		if (n1 instanceof TermNode) {
 			TermNode t1 = (TermNode)n1;
 			if (n2 instanceof ExprNode) {
-				return new ExprNode(t1, (ExprNode)n2);
+				return new ExprNode(t1, op, (ExprNode)n2);
 			}
 			if (n2 instanceof TermNode) {
-				return new ExprNode(t1, new ExprNode((TermNode)n2));
+				return new ExprNode(t1, op, new ExprNode((TermNode)n2));
 			}
-			return new ExprNode(t1, new ExprNode(new TermNode((FactorNode)n2)));
+			return new ExprNode(t1, op, new ExprNode(new TermNode((FactorNode)n2)));
 		}
 		FactorNode f1 = (FactorNode)n1;
 		if (n2 instanceof ExprNode) {
-			return new ExprNode(new TermNode(f1), (ExprNode)n2);
+			return new ExprNode(new TermNode(f1), op, (ExprNode)n2);
 		}
 		if (n2 instanceof TermNode) {
-			return new ExprNode(new TermNode(f1), new ExprNode((TermNode)n2));
+			return new ExprNode(new TermNode(f1), op, new ExprNode((TermNode)n2));
 		}
-		return new ExprNode(new TermNode(f1), new ExprNode(new TermNode((FactorNode)n2)));
+		return new ExprNode(new TermNode(f1), op, new ExprNode(new TermNode((FactorNode)n2)));
 	}
 
-	private static TermNode combineMult(Node n1, Node n2) {
+	private static TermNode combineMult(BinaryNode n1, String op, BinaryNode n2) {
 		FactorNode f;
 		if (n1 instanceof ExprNode) {
 			f = new FactorNode((ExprNode)n1);
@@ -290,47 +301,15 @@ public class BET {
 			t = new TermNode((FactorNode)n2);
 		}
 
-		return new TermNode(f, t);
+		return new TermNode(f, op, t);
 	}
 
-	private static ExprNode makeExpr(Node n) {
+	private static ExprNode makeExpr(BinaryNode n) {
 		if (n instanceof ExprNode)
 			return (ExprNode)n;
 		if (n instanceof TermNode)
 			return new ExprNode((TermNode)n);
 		return new ExprNode(new TermNode((FactorNode)n));
-	}
-
-	private static int __size(Node n) {
-		if (n == null) {
-			return 0;
-		}
-		if (n instanceof ExprNode) {
-			ExprNode e = (ExprNode)n;
-			return 1 + __size(e.t) + __size(e.e);
-		}
-		if (n instanceof TermNode) {
-			TermNode t = (TermNode)n;
-			return 1 + __size(t.f) + __size(t.t);
-		}
-		FactorNode f = (FactorNode)n;
-		return 1 + __size(f.e);
-	}
-
-	private static int __leaf(Node n) {
-		if (n == null) {
-			return 0;
-		}
-		if (n instanceof ExprNode) {
-			ExprNode e = (ExprNode)n;
-			return __leaf(e.t) + __leaf(e.e);
-		}
-		if (n instanceof TermNode) {
-			TermNode t = (TermNode)n;
-			return __leaf(t.f) + __leaf(t.t);
-		}
-		FactorNode f = (FactorNode)n;
-		return 1 + __leaf(f.e);
 	}
 
 	public BET() {
@@ -345,38 +324,38 @@ public class BET {
 			buildFromInfix(expr);
 		}
 		else {
-			throw new IllegalArgumentException("Invalid mode \"" + mode + "\"");
+			throw new IllegalStateException("Invalid mode \"" + mode + "\"");
 		}
 	}
 
 	public boolean buildFromPostfix(String postfix) {
 		TokStream stream = new TokStream(postfix);
-		Stack<Node> input = new Stack<>();
+		Stack<BinaryNode> input = new Stack<>();
 		while (!stream.isEmpty()) {
 			String next = stream.extract();
-			if (next.matches("^(\\d|[A-Za-z])+$")) {
+			if (next.matches("^\\w+$")) {
 				input.push(new FactorNode(next));
 			}
-			else if (next.equals("+")) {
+			else if (next.equals("+") || next.equals("-")) {
 				if (input.size() < 2) {
-					throw new IllegalArgumentException("Stack too short for \"+\"");
+					throw new IllegalStateException("Stack too short for \"+\"");
 				}
-				Node i2 = input.pop();
-				Node i1 = input.pop();
+				BinaryNode i2 = input.pop();
+				BinaryNode i1 = input.pop();
 
-				input.push(combinePlus(i1, i2));
+				input.push(combinePlus(i1, next, i2));
 			}
-			else if (next.equals("*")) {
+			else if (next.equals("*") || next.equals("/")) {
 				if (input.size() < 2) {
-					throw new IllegalArgumentException("Stack too short for \"+\"");
+					throw new IllegalStateException("Stack too short for \"+\"");
 				}
-				Node i2 = input.pop();
-				Node i1 = input.pop();
+				BinaryNode i2 = input.pop();
+				BinaryNode i1 = input.pop();
 
-				input.push(combineMult(i1, i2));
+				input.push(combineMult(i1, next, i2));
 			}
 			else {
-				throw new IllegalArgumentException("Invalid token \"" + next + "\"");
+				throw new IllegalStateException("Invalid token \"" + next + "\"");
 			}
 		}
 		this.root = makeExpr(input.peek());
@@ -384,29 +363,30 @@ public class BET {
 	}
 
 	public boolean buildFromInfix(String infix) {
-		try {
-			TokStream stream = new TokStream(infix);
-			this.root = __infixExpr(stream);
-			if (!stream.isEmpty()) {
-				throw new IllegalArgumentException("Trailing tokens");
-			}
-		}
-		catch (IllegalArgumentException e) {
-			return false;
+		TokStream stream = new TokStream(infix);
+		this.root = __infixExpr(stream);
+		if (!stream.isEmpty()) {
+			throw new IllegalStateException("Trailing tokens");
 		}
 		return this.root != null;
 	}
 
 	public void printInfixExpression() {
-		System.out.println(this.root.toString());
+		if (this.root != null) {
+			printInfixExpression(this.root);
+			System.out.println();
+		}
 	}
 
 	public void printPostfixExpression() {
-		System.out.println(this.root.toStringPostfix());
+		if (this.root != null) {
+			printPostfixExpression(this.root);
+			System.out.println();
+		}
 	}
 
 	public int size() {
-		return __size(this.root);
+		return size(this.root);
 	}
 
 	public boolean isEmpty() {
@@ -414,6 +394,89 @@ public class BET {
 	}
 
 	public int leafNodes() {
-		return __leaf(this.root);
+		return leafNodes(this.root);
+	}
+
+	private static void printInfixExpression(BinaryNode n) {
+		if (n == null) {
+			return;
+		}
+		printInfixExpression(n.left);
+		if (n.mid != null) {
+			System.out.print(n.mid + " ");
+		}
+		if (n instanceof FactorNode && n.right != null) {
+			System.out.print("( ");
+			printInfixExpression(n.right);
+			System.out.print(") ");
+		}
+		else {
+			printInfixExpression(n.right);
+		}
+	}
+
+	private static void makeEmpty(BinaryNode t) {
+		if (t == null) {
+			return;
+		}
+		makeEmpty(t.left);
+		t.left = null;
+		makeEmpty(t.right);
+		t.right = null;
+	}
+
+	private static void printPostfixExpression(BinaryNode n) {
+		if (n == null) {
+			return;
+		}
+		printPostfixExpression(n.left);
+		printPostfixExpression(n.right);
+		if (n.mid != null) {
+			System.out.print(n.mid + " ");
+		}
+	}
+
+	private static int size(BinaryNode n) {
+		if (n == null) {
+			return 0;
+		}
+		if (n instanceof ExprNode) {
+			ExprNode e = (ExprNode)n;
+			if (e.e() == null) {
+				return size(e.t());
+			}
+			return 1 + size(e.t()) + size(e.e());
+		}
+		if (n instanceof TermNode) {
+			TermNode t = (TermNode)n;
+			if (t.t() == null) {
+				return size(t.f());
+			}
+			return 1 + size(t.f()) + size(t.t());
+		}
+		FactorNode f = (FactorNode)n;
+		if (f.e() != null) {
+			return size(f.e());
+		}
+		return 1;
+	}
+
+	private static int leafNodes(BinaryNode n) {
+		if (n == null) {
+			return 0;
+		}
+		if (n instanceof ExprNode) {
+			ExprNode e = (ExprNode)n;
+			return leafNodes(e.t()) + leafNodes(e.e());
+		}
+		if (n instanceof TermNode) {
+			TermNode t = (TermNode)n;
+			return leafNodes(t.f()) + leafNodes(t.t());
+		}
+		FactorNode f = (FactorNode)n;
+		if (f.e() != null) {
+			return leafNodes(f.e());
+		}
+		return 1;
 	}
 }
