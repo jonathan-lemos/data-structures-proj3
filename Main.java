@@ -1,5 +1,6 @@
 public class Main {
 	public static void main(String[] args) {
+		/*
 		try {
 			System.out.println("\n\ntest1: a b c + * d -");
 			BET test = new BET("a b c + * d -" , 'p');
@@ -53,5 +54,6 @@ public class Main {
 		catch(IllegalStateException e) {
 			System.out.println(e.getMessage());
 		}
+		*/
 	}
 }

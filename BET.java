@@ -1,15 +1,20 @@
+// dear grader
+// i'm sorry for forcing you to read through this awful code
+// sincerely,
+// jon "arch jesus" lemos
+
 // infix
 
 // og grammar
-// E -> T + E | T
-// T -> F x T | F
-// F -> ( E ) | num
+// E -> E + T | E - T | T
+// T -> T * F | T / F | F
+// F -> id | ( E )
 
 // fixed grammar
 // E  -> T E'
-// E' -> + E | epsilon
+// E' -> + E | - E | epsilon
 // T  -> F T'
-// T' -> x T | epsilon
+// T' -> x T | / T | epsilon
 // F  -> num | ( E )
 
 import java.util.LinkedList;
@@ -66,12 +71,41 @@ class TokStream {
 
 
 public class BET {
-	private abstract static class BinaryNode {
+	private static class BinaryNode {
 		protected BinaryNode left;
 		protected String mid;
 		protected BinaryNode right;
 
-		abstract String toStringPostfix();
+		public BinaryNode() {
+			this(null, null, null);
+		}
+
+		public BinaryNode(String mid) {
+			this(null, mid, null);
+		}
+
+		public BinaryNode(BinaryNode left, String mid, BinaryNode right) {
+			this.left = left;
+			this.mid = mid;
+			this.right = right;
+		}
+
+		@Override
+		public String toString() {
+			StringBuilder sb = new StringBuilder();
+			if (left != null) {
+				sb.append(left.toString());
+			}
+			if (mid != null) {
+				sb.append(" ");
+				sb.append(mid);
+				sb.append(" ");
+			}
+			if (right != null) {
+				sb.append(right.toString());
+			}
+			return sb.toString();
+		}
 	}
 
 	private static class ExprNode extends BinaryNode {
@@ -177,7 +211,7 @@ public class BET {
 		}
 	}
 
-	private ExprNode root;
+	private BinaryNode root;
 
 	private FactorNode __infixFactor(TokStream tokens) {
 		String next = tokens.peek();
@@ -312,6 +346,70 @@ public class BET {
 		return new ExprNode(new TermNode((FactorNode)n));
 	}
 
+	private static void __generalize(BinaryNode n) {
+		if (n == null) {
+			return;
+		}
+		__generalize(n.left);
+		__generalize(n.right);
+		if (n.left != null) {
+			n.left = new BinaryNode(n.left.left, n.left.mid, n.left.right);
+		}
+		if (n.right != null) {
+			n.right = new BinaryNode(n.right.left, n.right.mid, n.right.right);
+		}
+	}
+
+	private void __generalize() {
+		__generalize(this.root);
+		this.root = new BinaryNode(this.root.left, this.root.mid, this.root.right);
+	}
+
+	private static void __condense(BinaryNode n) {
+		if (n == null || (n.left == null && n.right == null)) {
+			return;
+		}
+		__condense(n.left);
+		__condense(n.right);
+		if (n.left != null) {
+			if (n.left.mid == null && n.left.left != null) {
+				n.left = n.left.left;
+			} else if (n.left.mid == null && n.left.right != null) {
+				n.left = n.right.left;
+			}
+		}
+
+		if (n.right != null) {
+			if (n.right.mid == null && n.right.left != null) {
+				n.right = n.right.left;
+			} else if (n.right.mid == null && n.right.right != null) {
+				n.right = n.right.right;
+			}
+		}
+	}
+
+	private static void __fixAssociativity(BinaryNode n) {
+		if (n == null || (n.left == null && n.right == null)) {
+			return;
+		}
+		if (
+				(n.mid.matches("^[+\\-]$") && n.left.mid.matches("^\\w+$") && n.right.mid.matches("^[+\\-]$")) ||
+				(n.mid.matches("^[*/]$") && n.left.mid.matches("^\\w+$") && n.right.mid.matches("^[*/]$"))
+		) {
+			String tmp = n.left.mid;
+			n.left = new BinaryNode(n.mid);
+			n.left.left = new BinaryNode(tmp);
+			n.left.right = n.right.left;
+			n.mid = n.right.mid;
+			n.right = n.right.right;
+		}
+		if (n.left == null || n.right == null) {
+			return;
+		}
+		__fixAssociativity(n.left);
+		__fixAssociativity(n.right);
+	}
+
 	public BET() {
 		root = null;
 	}
@@ -319,9 +417,13 @@ public class BET {
 	public BET(String expr, char mode) {
 		if (mode == 'p' || mode == 'P') {
 			buildFromPostfix(expr);
+			__generalize();
 		}
 		else if (mode == 'i' || mode == 'I') {
 			buildFromInfix(expr);
+			__generalize();
+			__condense(this.root);
+			__fixAssociativity(this.root);
 		}
 		else {
 			throw new IllegalStateException("Invalid mode \"" + mode + "\"");
@@ -440,43 +542,16 @@ public class BET {
 		if (n == null) {
 			return 0;
 		}
-		if (n instanceof ExprNode) {
-			ExprNode e = (ExprNode)n;
-			if (e.e() == null) {
-				return size(e.t());
-			}
-			return 1 + size(e.t()) + size(e.e());
-		}
-		if (n instanceof TermNode) {
-			TermNode t = (TermNode)n;
-			if (t.t() == null) {
-				return size(t.f());
-			}
-			return 1 + size(t.f()) + size(t.t());
-		}
-		FactorNode f = (FactorNode)n;
-		if (f.e() != null) {
-			return size(f.e());
-		}
-		return 1;
+		return 1 + size(n.left) + size(n.right);
 	}
 
 	private static int leafNodes(BinaryNode n) {
 		if (n == null) {
 			return 0;
 		}
-		if (n instanceof ExprNode) {
-			ExprNode e = (ExprNode)n;
-			return leafNodes(e.t()) + leafNodes(e.e());
+		if (n.left == null && n.right == null) {
+			return 1;
 		}
-		if (n instanceof TermNode) {
-			TermNode t = (TermNode)n;
-			return leafNodes(t.f()) + leafNodes(t.t());
-		}
-		FactorNode f = (FactorNode)n;
-		if (f.e() != null) {
-			return leafNodes(f.e());
-		}
-		return 1;
+		return leafNodes(n.left) + leafNodes(n.right);
 	}
 }
