@@ -19,10 +19,10 @@
  * F  -> id | ( E )
  */
 
-import java.util.LinkedList;
-import java.util.Stack;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Stream;
 
 // lexer / token stream class
 class TokStream {
@@ -86,17 +86,17 @@ class TokStream {
 public class BET {
 	// returns true if s is a "+" or "-"
 	public static boolean isAddop(String s) {
-		return s.matches("^[+\\-]$");
+		return s != null && s.matches("^[+\\-]$");
 	}
 
 	// returns true if s is a "*" or "/"
 	public static boolean isMulop(String s) {
-		return s.matches("^[*/]$");
+		return s != null && s.matches("^[*/]$");
 	}
 
 	// returns true if s is an identifier
 	public static boolean isId(String s) {
-		return s.matches("^\\w+$");
+		return s != null && s.matches("^\\w+$");
 	}
 
 	// standard binary node class
@@ -342,6 +342,57 @@ public class BET {
 		return e;
 	}
 
+	private String infixToPostfix(String infix) {
+		TokStream stream = new TokStream(infix);
+		Stack<String> ops = new Stack<>();
+		Queue<String> out = new LinkedList<>();
+
+		while (!stream.isEmpty()) {
+			String next = stream.extract();
+			if (isId(next)) {
+				out.add(next);
+			}
+			else if (isAddop(next)) {
+				while (!ops.empty() && !ops.peek().equals("(")) {
+					out.add(ops.pop());
+				}
+				ops.push(next);
+			}
+			else if (isMulop(next)) {
+				while (!ops.empty() && isMulop(ops.peek())) {
+					out.add(ops.pop());
+				}
+				ops.push(next);
+			}
+			else if (next.equals("(")) {
+				ops.push("(");
+			}
+			else if (next.equals(")")) {
+				if (ops.empty()) {
+					throw new IllegalStateException("Mismatched parentheses");
+				}
+				while (!ops.peek().equals("(")) {
+					out.add(ops.pop());
+					if (ops.empty()) {
+						throw new IllegalStateException("Mismatched parentheses");
+					}
+				}
+				ops.pop();
+			}
+		}
+		while (!ops.isEmpty()) {
+			out.add(ops.pop());
+		}
+
+		StringBuilder ret = new StringBuilder();
+		for (String s : out) {
+			ret.append(s);
+			ret.append(" ");
+		}
+		ret.deleteCharAt(ret.length() - 1);
+		return ret.toString();
+	}
+
 	// used for postfix expressions. combines two exprs into one
 	private static ExprNode combinePlus(BinaryNode n1, String op, BinaryNode n2) {
 		if (n1 instanceof ExprNode) {
@@ -512,11 +563,9 @@ public class BET {
 		if (n == null || (n.left == null && n.right == null)) {
 			return;
 		}
-		__fixAssociativity(n.left);
-		__fixAssociativity(n.right);
 		if (
 				(isAddop(n.mid) && isId(n.left.mid) && isAddop(n.right.mid)) ||
-				(isMulop(n.mid) && isId(n.right.mid) && isMulop(n.right.mid))
+				(isMulop(n.mid) && isId(n.left.mid) && isMulop(n.right.mid))
 		) {
 			String tmp = n.left.mid;
 			n.left = new BinaryNode(n.mid);
@@ -537,6 +586,9 @@ public class BET {
 			BinaryNode tmp3 = n.left;
 			n.left = new BinaryNode(tmp3, tmp, tmp2);
 		}
+
+		__fixAssociativity(n.left);
+		__fixAssociativity(n.right);
 	}
 
 	// this is the much easier postfix parser
@@ -606,6 +658,10 @@ public class BET {
 	}
 
 	public boolean buildFromInfix(String infix) {
+		String s = infixToPostfix(infix);
+		return buildFromPostfix(infixToPostfix(infix));
+
+		/*
 		TokStream stream = new TokStream(infix);
 		this.root = __infixExpr(stream);
 		if (!stream.isEmpty()) {
@@ -619,6 +675,7 @@ public class BET {
 		__condense();
 		__fixAssociativity(this.root);
 		return true;
+		*/
 	}
 
 	public void printInfixExpression() {
