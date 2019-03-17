@@ -1,6 +1,11 @@
 public class Main {
 	public static void main(String[] args) {
-		/*
+		BET t = new BET();
+		t.buildFromInfix("((5+2) - (8-3))/4");
+		t.printInfixExpression();
+		t.printPostfixExpression();
+		System.out.println();
+
 		try {
 			System.out.println("\n\ntest1: a b c + * d -");
 			BET test = new BET("a b c + * d -" , 'p');
@@ -54,6 +59,5 @@ public class Main {
 		catch(IllegalStateException e) {
 			System.out.println(e.getMessage());
 		}
-		*/
 	}
 }

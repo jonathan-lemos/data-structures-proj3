@@ -1,47 +1,59 @@
-// dear grader
-// i'm sorry for forcing you to read through this awful code
-// sincerely,
-// jon "arch jesus" lemos
-
-// infix
-
-// og grammar
-// E -> E + T | E - T | T
-// T -> T * F | T / F | F
-// F -> id | ( E )
-
-// fixed grammar
-// E  -> T E'
-// E' -> + E | - E | epsilon
-// T  -> F T'
-// T' -> x T | / T | epsilon
-// F  -> num | ( E )
+/*
+ * dear grader,
+ * i'm sorry for forcing you to read through this awful code
+ * sincerely,
+ * jon "arch jesus" lemos
+ *
+ * infix
+ *
+ * og grammar
+ * E -> E + T | E - T | T
+ * T -> T * F | T / F | F
+ * F -> id | ( E )
+ *
+ * fixed grammar
+ * E  -> T E'
+ * E' -> + E | - E | epsilon
+ * T  -> F T'
+ * T' -> * T | / T | epsilon
+ * F  -> id | ( E )
+ */
 
 import java.util.LinkedList;
 import java.util.Stack;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+// lexer / token stream class
 class TokStream {
+	// the tokens
 	private LinkedList<String> lexemes;
 
 	public TokStream(String input) {
+		// splits the input stream into identifiers and operators (tokens)
+		// a.k.a. "lexical analysis"
 		this.lexemes = new LinkedList<>();
 		while (!input.isEmpty()) {
 			Matcher m;
+			// if the string starts with whitespace
 			m = Pattern.compile("^(\\s+).*$").matcher(input);
 			if (m.find()) {
+				// get rid of it
 				input = input.substring(m.group(1).length());
 				continue;
 			}
+			// if the string starts with [A-Za-z0-9]
 			m = Pattern.compile("^(\\w+).*$").matcher(input);
 			if (m.find()) {
+				// we read an id
 				lexemes.addLast(m.group(1));
 				input = input.substring(m.group(1).length());
 				continue;
 			}
+			// if the string is punctuation
 			m = Pattern.compile("^([+\\-*/()]).*$").matcher(input);
 			if (m.find()) {
+				// we read punctuation
 				lexemes.addLast(m.group(1));
 				input = input.substring(m.group(1).length());
 				continue;
@@ -50,6 +62,7 @@ class TokStream {
 		}
 	}
 
+	// returns the next token in the stream without extracting it
 	public String peek() {
 		if (this.isEmpty()) {
 			return null;
@@ -57,6 +70,7 @@ class TokStream {
 		return this.lexemes.getFirst();
 	}
 
+	// removes the next token from the stream and returns it
 	public String extract() {
 		if (this.isEmpty()) {
 			return null;
@@ -69,8 +83,23 @@ class TokStream {
 	}
 }
 
-
 public class BET {
+	// returns true if s is a "+" or "-"
+	public static boolean isAddop(String s) {
+		return s.matches("^[+\\-]$");
+	}
+
+	// returns true if s is a "*" or "/"
+	public static boolean isMulop(String s) {
+		return s.matches("^[*/]$");
+	}
+
+	// returns true if s is an identifier
+	public static boolean isId(String s) {
+		return s.matches("^\\w+$");
+	}
+
+	// standard binary node class
 	private static class BinaryNode {
 		protected BinaryNode left;
 		protected String mid;
@@ -108,6 +137,31 @@ public class BET {
 		}
 	}
 
+	/*
+	 * so let me try to explain the clusterfuck below
+	 * see the grammar at the top of the file? that's how i parse infix
+	 * so parsing the expression "3 * (4 + 5)" would look like
+	 *
+	 *   E
+	 *   |
+	 *   T
+	 *   |
+	 * T-|-----F
+	 * | |     |
+	 * | | ----E----
+	 * | | |   |   |
+	 * | | | E-|-T |
+	 * | | | | | | |
+	 * | | | T | | |
+	 * | | | | | | |
+	 * F | | F | F |
+	 * | | | | | | |
+	 * 3 * ( 4 + 5 )
+	 *
+	 * These node classes represent the E's, T's and F's
+	 */
+
+	// stores an expression (E -> E + T | E - T | T). used for the infix parser
 	private static class ExprNode extends BinaryNode {
 		public ExprNode(TermNode t) {
 			this(t, null, null);
@@ -142,8 +196,8 @@ public class BET {
 		}
 	}
 
+	// stores a term (T -> T * F | T / F | F). used for the infix parser
 	private static class TermNode extends BinaryNode {
-
 		public TermNode(FactorNode f) {
 			this(f, null, null);
 		}
@@ -177,6 +231,7 @@ public class BET {
 		}
 	}
 
+	// stores a factor (F -> id | ( E )). used for the infix parser
 	private static class FactorNode extends BinaryNode {
 		public FactorNode(String s) {
 			this.mid = s;
@@ -211,8 +266,10 @@ public class BET {
 		}
 	}
 
+	// the root of the tree
 	private BinaryNode root;
 
+	// F -> ID | ( E )
 	private FactorNode __infixFactor(TokStream tokens) {
 		String next = tokens.peek();
 		if (next == null) {
@@ -237,6 +294,7 @@ public class BET {
 		}
 	}
 
+	// T' -> * T | / T | epsilon
 	private TermNode __infixTermPrime(TokStream tokens, FactorNode f) {
 		String next = tokens.peek();
 		if (next == null || (!next.equals("*") && !next.equals("/"))) {
@@ -250,6 +308,7 @@ public class BET {
 		return new TermNode(f, next, t);
 	}
 
+	// T -> F T'
 	private TermNode __infixTerm(TokStream tokens) {
 		FactorNode f = __infixFactor(tokens);
 		if (f == null) {
@@ -259,6 +318,7 @@ public class BET {
 		return t;
 	}
 
+	// E' -> + E | - E | epsilon
 	private ExprNode __infixExprPrime(TokStream tokens, TermNode t) {
 		String next = tokens.peek();
 		if (next == null || (!next.equals("+") && !next.equals("-"))) {
@@ -272,6 +332,7 @@ public class BET {
 		return new ExprNode(t, next, e);
 	}
 
+	// E -> T E'
 	private ExprNode __infixExpr(TokStream tokens) {
 		TermNode t = __infixTerm(tokens);
 		if (t == null) {
@@ -281,6 +342,7 @@ public class BET {
 		return e;
 	}
 
+	// used for postfix expressions. combines two exprs into one
 	private static ExprNode combinePlus(BinaryNode n1, String op, BinaryNode n2) {
 		if (n1 instanceof ExprNode) {
 			ExprNode e1 = (ExprNode)n1;
@@ -312,6 +374,7 @@ public class BET {
 		return new ExprNode(new TermNode(f1), op, new ExprNode(new TermNode((FactorNode)n2)));
 	}
 
+	// used for postfix expressions. combines two terms into one
 	private static TermNode combineMult(BinaryNode n1, String op, BinaryNode n2) {
 		FactorNode f;
 		if (n1 instanceof ExprNode) {
@@ -338,6 +401,7 @@ public class BET {
 		return new TermNode(f, op, t);
 	}
 
+	// converts a node into its equivalent expr node
 	private static ExprNode makeExpr(BinaryNode n) {
 		if (n instanceof ExprNode)
 			return (ExprNode)n;
@@ -346,6 +410,9 @@ public class BET {
 		return new ExprNode(new TermNode((FactorNode)n));
 	}
 
+	// so at this point we have a tree of ExprNodes, TermNodes, and FactorNodes
+	// we now need to turn it into a regular binary tree
+	// the below function does that (BinaryNode is a superclass of these three)
 	private static void __generalize(BinaryNode n) {
 		if (n == null) {
 			return;
@@ -360,22 +427,28 @@ public class BET {
 		}
 	}
 
+	// the above function cannot affect the root node because java doesn't have ref parameters like big daddy C#
+	// this function takes care of that
 	private void __generalize() {
 		__generalize(this.root);
 		this.root = new BinaryNode(this.root.left, this.root.mid, this.root.right);
 	}
 
+	// the above function will have a lot of nodes with only left or right children and no middle
+	// this function gets rid of those extraneous nodes
 	private static void __condense(BinaryNode n) {
 		if (n == null || (n.left == null && n.right == null)) {
 			return;
 		}
+
 		__condense(n.left);
 		__condense(n.right);
+
 		if (n.left != null) {
 			if (n.left.mid == null && n.left.left != null) {
 				n.left = n.left.left;
 			} else if (n.left.mid == null && n.left.right != null) {
-				n.left = n.right.left;
+				n.left = n.left.right;
 			}
 		}
 
@@ -388,13 +461,62 @@ public class BET {
 		}
 	}
 
+	private void __condense() {
+		if (this.root == null) {
+			return;
+		}
+		__condense(this.root);
+		if (this.root.mid != null) {
+			return;
+		}
+		if (this.root.left != null && this.root.right != null) {
+			throw new IllegalStateException("how did we get here?");
+		}
+		if (this.root.left != null) {
+			this.root = this.root.left;
+		}
+		else if (this.root.right != null) {
+			this.root = this.root.right;
+		}
+	}
+
+	/*
+	 * we've been doing the above for this function
+	 *
+	 * you see, the above grammar is ambiguous
+	 * for a given expression "3 + 4 + 5", you could have either
+	 *
+	 *     +
+	 *    / \
+	 *   +   5
+	 *  / \
+	 * 3   4
+	 *
+	 *   or
+	 *
+	 *   +
+	 *  / \
+	 * 3   +
+	 *    / \
+	 *   4   5
+	 *
+	 * left recursion is a pain in the ass and can only be handled by a shift-reduce parser
+	 * shift-reduce parsers are a pain in the ass because you have to make first/follow sets along with the rest of the state machine only to figure out that your grammar isn't actually LR(1)
+	 * so a recursive descent parser like this one is the only real option
+	 * as a result, we end up making the second tree, which is the "right associative" one, because the recursive descent happens on the right half
+	 * unfortunately, while this tree produces the correct result when evaluated, we need the "left associative" tree for some bizarre reason
+	 * this function converts the second (wrong) tree to the first (correct) one
+	*/
 	private static void __fixAssociativity(BinaryNode n) {
+		// I'M BURNING THROUGH THE SKY, YEAH, 200 DEGREES THAT'S WHY THEY CALL ME MR FAHRRENHEIT
 		if (n == null || (n.left == null && n.right == null)) {
 			return;
 		}
+		__fixAssociativity(n.left);
+		__fixAssociativity(n.right);
 		if (
-				(n.mid.matches("^[+\\-]$") && n.left.mid.matches("^\\w+$") && n.right.mid.matches("^[+\\-]$")) ||
-				(n.mid.matches("^[*/]$") && n.left.mid.matches("^\\w+$") && n.right.mid.matches("^[*/]$"))
+				(isAddop(n.mid) && isId(n.left.mid) && isAddop(n.right.mid)) ||
+				(isMulop(n.mid) && isId(n.right.mid) && isMulop(n.right.mid))
 		) {
 			String tmp = n.left.mid;
 			n.left = new BinaryNode(n.mid);
@@ -403,41 +525,32 @@ public class BET {
 			n.mid = n.right.mid;
 			n.right = n.right.right;
 		}
-		if (n.left == null || n.right == null) {
-			return;
-		}
-		__fixAssociativity(n.left);
-		__fixAssociativity(n.right);
-	}
 
-	public BET() {
-		root = null;
-	}
-
-	public BET(String expr, char mode) {
-		if (mode == 'p' || mode == 'P') {
-			buildFromPostfix(expr);
-			__generalize();
-		}
-		else if (mode == 'i' || mode == 'I') {
-			buildFromInfix(expr);
-			__generalize();
-			__condense(this.root);
-			__fixAssociativity(this.root);
-		}
-		else {
-			throw new IllegalStateException("Invalid mode \"" + mode + "\"");
+		if (
+				(isAddop(n.mid) && isAddop(n.left.mid) && isAddop(n.right.mid)) ||
+				(isMulop(n.mid) && isMulop(n.left.mid) && isMulop(n.right.mid))
+		) {
+			String tmp = n.mid;
+			BinaryNode tmp2 = n.right.left;
+			n.mid = n.right.mid;
+			n.right = n.right.right;
+			BinaryNode tmp3 = n.left;
+			n.left = new BinaryNode(tmp3, tmp, tmp2);
 		}
 	}
 
-	public boolean buildFromPostfix(String postfix) {
+	// this is the much easier postfix parser
+	private boolean __buildFromPostfix(String postfix) {
 		TokStream stream = new TokStream(postfix);
 		Stack<BinaryNode> input = new Stack<>();
+		// while we have tokens
 		while (!stream.isEmpty()) {
 			String next = stream.extract();
+			// push any identifiers on to the stack
 			if (next.matches("^\\w+$")) {
 				input.push(new FactorNode(next));
 			}
+			// pop 2 entries, push our + expression
 			else if (next.equals("+") || next.equals("-")) {
 				if (input.size() < 2) {
 					throw new IllegalStateException("Stack too short for \"+\"");
@@ -447,6 +560,7 @@ public class BET {
 
 				input.push(combinePlus(i1, next, i2));
 			}
+			// pop 2 entries, push our * expression
 			else if (next.equals("*") || next.equals("/")) {
 				if (input.size() < 2) {
 					throw new IllegalStateException("Stack too short for \"+\"");
@@ -457,10 +571,37 @@ public class BET {
 				input.push(combineMult(i1, next, i2));
 			}
 			else {
-				throw new IllegalStateException("Invalid token \"" + next + "\"");
+				throw new IllegalStateException("Unexpected token \"" + next + "\"");
 			}
 		}
 		this.root = makeExpr(input.peek());
+		return true;
+	}
+
+	// --------------- public interface starts here ----------------
+
+	public BET() {
+		root = null;
+	}
+
+	public BET(String expr, char mode) {
+		if (mode == 'p' || mode == 'P') {
+			buildFromPostfix(expr);
+		}
+		else if (mode == 'i' || mode == 'I') {
+			buildFromInfix(expr);
+		}
+		else {
+			throw new IllegalStateException("Invalid mode \"" + mode + "\"");
+		}
+	}
+
+	public boolean buildFromPostfix(String postfix) {
+		if (!__buildFromPostfix(postfix)) {
+			return false;
+		}
+		__generalize();
+		__condense();
 		return true;
 	}
 
@@ -470,7 +611,14 @@ public class BET {
 		if (!stream.isEmpty()) {
 			throw new IllegalStateException("Trailing tokens");
 		}
-		return this.root != null;
+		if (this.root == null) {
+			return false;
+		}
+		__generalize();
+		__condense();
+		__condense();
+		__fixAssociativity(this.root);
+		return true;
 	}
 
 	public void printInfixExpression() {
@@ -478,12 +626,18 @@ public class BET {
 			printInfixExpression(this.root);
 			System.out.println();
 		}
+		else {
+			System.out.println("Empty");
+		}
 	}
 
 	public void printPostfixExpression() {
 		if (this.root != null) {
 			printPostfixExpression(this.root);
 			System.out.println();
+		}
+		else {
+			System.out.println("Empty");
 		}
 	}
 
@@ -503,11 +657,18 @@ public class BET {
 		if (n == null) {
 			return;
 		}
-		printInfixExpression(n.left);
+		if (n.mid != null && isMulop(n.mid) && n.left != null && isAddop(n.left.mid)) {
+			System.out.print("( ");
+			printInfixExpression(n.left);
+			System.out.print(") ");
+		}
+		else {
+			printInfixExpression(n.left);
+		}
 		if (n.mid != null) {
 			System.out.print(n.mid + " ");
 		}
-		if (n instanceof FactorNode && n.right != null) {
+		if (n.mid != null && isMulop(n.mid) && n.right != null && n.right.mid != null && isAddop(n.right.mid)) {
 			System.out.print("( ");
 			printInfixExpression(n.right);
 			System.out.print(") ");
