@@ -1,7 +1,7 @@
 public class Main {
 	public static void main(String[] args) {
 		BET t = new BET();
-		t.buildFromInfix("3 + 4 + (5 * (6 + 7))");
+		t.buildFromInfix("((3 + 4)) * 5");
 		t.printInfixExpression();
 		t.printPostfixExpression();
 		System.out.println();
