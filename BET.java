@@ -19,22 +19,24 @@ class TokStream {
 				input = input.substring(m.group(1).length());
 				continue;
 			}
-			// if the string starts with [A-Za-z0-9]
-			m = Pattern.compile("^(\\w+).*$").matcher(input);
+			// if the string starts with an alphanumeric substring or punctuation
+			m = Pattern.compile("^(\\w+|[+\\-*/()]).*$").matcher(input);
 			if (m.find()) {
 				// we read an id
 				lexemes.addLast(m.group(1));
 				input = input.substring(m.group(1).length());
 				continue;
 			}
+			/*
 			// if the string is punctuation
-			m = Pattern.compile("^([+\\-*/()]).*$").matcher(input);
+			m = Pattern.compile("^([+\\-/*()]).*$").matcher(input);
 			if (m.find()) {
 				// we read punctuation
 				lexemes.addLast(m.group(1));
 				input = input.substring(m.group(1).length());
 				continue;
 			}
+			*/
 			throw new IllegalStateException("Invalid token \"" + input.substring(0, 1) + "\"");
 		}
 	}
@@ -62,17 +64,17 @@ class TokStream {
 
 public class BET {
 	// returns true if s is a "+" or "-"
-	public static boolean isAddop(String s) {
+	private static boolean isAddop(String s) {
 		return s != null && s.matches("^[+\\-]$");
 	}
 
 	// returns true if s is a "*" or "/"
-	public static boolean isMulop(String s) {
+	private static boolean isMulop(String s) {
 		return s != null && s.matches("^[*/]$");
 	}
 
 	// returns true if s is an identifier
-	public static boolean isId(String s) {
+	private static boolean isId(String s) {
 		return s != null && s.matches("^\\w+$");
 	}
 
@@ -82,10 +84,6 @@ public class BET {
 		public BinaryNode left;
 		public String mid;
 		public BinaryNode right;
-
-		public BinaryNode() {
-			this(null, null, null);
-		}
 
 		public BinaryNode(String mid) {
 			this(null, mid, null);
@@ -143,6 +141,7 @@ public class BET {
 				ops.push(next);
 			}
 			else if (isMulop(next)) {
+				// pop only mulops, because addops need to go after
 				while (!ops.empty() && isMulop(ops.peek())) {
 					out.add(ops.pop());
 				}
@@ -155,6 +154,7 @@ public class BET {
 				if (ops.empty()) {
 					throw new IllegalStateException("Mismatched parentheses (unexpected \")\")");
 				}
+				// find the matching "("
 				while (!ops.peek().equals("(")) {
 					out.add(ops.pop());
 					if (ops.empty()) {
@@ -162,6 +162,9 @@ public class BET {
 					}
 				}
 				ops.pop();
+			}
+			else {
+				throw new IllegalStateException("Unexpected \"" + next + "\"");
 			}
 		}
 		while (!ops.isEmpty()) {
