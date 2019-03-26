@@ -1,11 +1,5 @@
 public class Main {
 	public static void main(String[] args) {
-		BET t = new BET();
-		t.buildFromInfix("((3 + 4)) * 5");
-		t.printInfixExpression();
-		t.printPostfixExpression();
-		System.out.println();
-
 		try {
 			System.out.println("\n\ntest1: a b c + * d -");
 			BET test = new BET("a b c + * d -" , 'p');

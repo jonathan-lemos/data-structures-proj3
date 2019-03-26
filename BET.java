@@ -191,27 +191,29 @@ public class BET {
 		while (!stream.isEmpty()) {
 			String next = stream.extract();
 			// push any identifiers on to the stack
-			if (next.matches("^\\w+$")) {
+			if (isId(next)) {
 				input.push(new BinaryNode(next));
 			}
 			// pop 2 entries, push our + expression
-			else if (next.equals("+") || next.equals("-")) {
+			else if (isAddop(next)) {
 				if (input.size() < 2) {
 					throw new IllegalStateException("Stack too short for \"+\"");
 				}
 				BinaryNode i2 = input.pop();
 				BinaryNode i1 = input.pop();
 
+				// put the two on either side of the [+-]
 				input.push(new BinaryNode(i1, next, i2));
 			}
 			// pop 2 entries, push our * expression
-			else if (next.equals("*") || next.equals("/")) {
+			else if (isMulop(next)) {
 				if (input.size() < 2) {
 					throw new IllegalStateException("Stack too short for \"+\"");
 				}
 				BinaryNode i2 = input.pop();
 				BinaryNode i1 = input.pop();
 
+				// put the two on either side of the [*/]
 				input.push(new BinaryNode(i1, next, i2));
 			}
 			else {
@@ -287,24 +289,20 @@ public class BET {
 		if (n == null) {
 			return;
 		}
-		if (isMulop(n.mid) && n.left != null && isAddop(n.left.mid)) {
+		if (n.left != null || n.right != null) {
 			System.out.print("( ");
-			printInfixExpression(n.left);
-			System.out.print(") ");
 		}
-		else {
-			printInfixExpression(n.left);
+		printInfixExpression(n.left);
+		if (n.left != null) {
+			System.out.print(" ");
 		}
-		if (n.mid != null) {
-			System.out.print(n.mid + " ");
+		System.out.print(n.mid);
+		if (n.right != null) {
+			System.out.print(" ");
 		}
-		if (isMulop(n.mid) && n.right != null && isAddop(n.right.mid)) {
-			System.out.print("( ");
-			printInfixExpression(n.right);
-			System.out.print(") ");
-		}
-		else {
-			printInfixExpression(n.right);
+		printInfixExpression(n.right);
+		if (n.left != null || n.right != null) {
+			System.out.print(" )");
 		}
 	}
 
